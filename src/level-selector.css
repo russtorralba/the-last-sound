@@ -1,0 +1,21 @@
+@media (max-width: 760px) {
+  .level-path {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(44px, 1fr));
+    gap: 10px 6px;
+  }
+
+  .level-path button {
+    min-width: 44px;
+    min-height: 52px;
+  }
+
+  .level-path button:not(:last-child)::after {
+    display: none;
+  }
+
+  .level-path b {
+    display: block;
+    font-size: .58rem;
+  }
+}

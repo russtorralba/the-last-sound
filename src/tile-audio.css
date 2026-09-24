@@ -1,0 +1,75 @@
+.tile {
+  cursor: default;
+  touch-action: manipulation;
+}
+
+.tile-icon {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 1rem;
+}
+
+.tile-actions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.tile-action {
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 7px 4px;
+  font: inherit;
+  font-size: .72rem;
+  font-weight: 800;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.tile-listen {
+  background: #eef3f2;
+  border-color: #cfdfda;
+  color: #3e7066;
+}
+
+.tile-select {
+  background: #e37961;
+  color: #fff;
+}
+
+.tile-action:hover:not(:disabled),
+.tile-action:focus-visible:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(.97);
+}
+
+.tile-action:focus-visible {
+  outline: 3px solid #f2b8a8;
+  outline-offset: 2px;
+}
+
+.tile-action:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.tile-action:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.tile.blue .tile-icon, .tile.sky .tile-icon, .tile.aqua .tile-icon { background: #dff0f4; color: #3987a1; }
+.tile.green .tile-icon, .tile.mint .tile-icon { background: #e2f0db; color: #4e9475; }
+.tile.yellow .tile-icon, .tile.gold .tile-icon { background: #fcf1c8; color: #c58b32; }
+.tile.coral .tile-icon, .tile.orange .tile-icon { background: #fae0d9; color: #d46d56; }
+.tile.lilac .tile-icon, .tile.violet .tile-icon { background: #ece3f4; color: #886baf; }
+.tile.peach .tile-icon, .tile.pink .tile-icon { background: #f9e3d9; color: #ca7962; }
+
+@media (max-width: 760px) {
+  .tile-action { min-height: 48px; font-size: .76rem; }
+}
