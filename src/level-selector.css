@@ -19,3 +19,14 @@
     font-size: .58rem;
   }
 }
+@media (min-width:761px) and (max-width:900px) {
+  .level-path button {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .level-path button:not(:last-child)::after {
+    width: 38%;
+    left: 72%;
+  }
+}

@@ -17,6 +17,10 @@ const levels = [
 const key = 'the-last-sound-unlocked-level'
 const levelEightMigrationKey = 'the-last-sound-eight-level-migration'
 
+function isStandaloneMode() { return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true }
+function isAppleMobile() { return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) }
+function isInAppBrowser() { return /FBAN|FBAV|Instagram|Messenger/i.test(navigator.userAgent) }
+
 function App() {
   const [unlocked, setUnlocked] = useState(() => {
     const savedLevel = Number(localStorage.getItem(key)) || 1
@@ -33,6 +37,9 @@ function App() {
   const [volume, setVolume] = useState(0.55)
   const [muted, setMuted] = useState(false)
   const [playing, setPlaying] = useState(false)
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null)
+  const [isStandalone, setIsStandalone] = useState(isStandaloneMode)
+  const [showInstallGuidance, setShowInstallGuidance] = useState(false)
   const timer = useRef(null)
   const audioContext = useRef(null)
   const current = levels[levelNumber - 1]
@@ -42,6 +49,28 @@ function App() {
     window.clearTimeout(timer.current)
     audioContext.current?.close()
   }, [])
+  useEffect(() => {
+    const displayMode = window.matchMedia('(display-mode: standalone)')
+    const updateStandaloneState = () => setIsStandalone(isStandaloneMode())
+    const captureInstallPrompt = (event) => { event.preventDefault(); setDeferredInstallPrompt(event) }
+    const handleInstalled = () => { setDeferredInstallPrompt(null); setIsStandalone(true); setShowInstallGuidance(false) }
+    window.addEventListener('beforeinstallprompt', captureInstallPrompt)
+    window.addEventListener('appinstalled', handleInstalled)
+    if (displayMode.addEventListener) displayMode.addEventListener('change', updateStandaloneState)
+    else displayMode.addListener(updateStandaloneState)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', captureInstallPrompt)
+      window.removeEventListener('appinstalled', handleInstalled)
+      if (displayMode.removeEventListener) displayMode.removeEventListener('change', updateStandaloneState)
+      else displayMode.removeListener(updateStandaloneState)
+    }
+  }, [])
+  useEffect(() => {
+    if (!showInstallGuidance) return
+    const closeOnEscape = (event) => { if (event.key === 'Escape') setShowInstallGuidance(false) }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [showInstallGuidance])
 
   function stopSound() {
     window.clearTimeout(timer.current)
@@ -134,17 +163,30 @@ function App() {
     setFeedback('')
   }
   function selectLevel(number) { if (number <= unlocked) { stopSound(); setLevelNumber(number); setAnswer([]); setFeedback('') } }
+  async function handleInstall() {
+    if (!deferredInstallPrompt) { setShowInstallGuidance(true); return }
+    await deferredInstallPrompt.prompt()
+    await deferredInstallPrompt.userChoice
+    setDeferredInstallPrompt(null)
+  }
+  const installGuidance = isAppleMobile()
+    ? 'Tap the Share button, then choose Add to Home Screen.'
+    : isInAppBrowser()
+      ? 'Open this page in Chrome or your browser first, then install The Last Sound.'
+      : 'Open your browser menu and choose Install app or Add to Home screen.'
+  const installButton = !isStandalone && <button className="install-button" type="button" onClick={handleInstall}>↓ Install The Last Sound</button>
+  const installDialog = showInstallGuidance && <div className="install-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowInstallGuidance(false) }}><section className="install-dialog" role="dialog" aria-modal="true" aria-labelledby="install-dialog-title"><p className="kicker">INSTALL THE LAST SOUND</p><h2 id="install-dialog-title">Keep the melody close</h2><p>{installGuidance}</p><button className="primary" type="button" onClick={() => setShowInstallGuidance(false)}>Close</button></section></div>
   const isComplete = levelNumber === levels.length && feedback.startsWith('Restored')
 
-  if (isComplete) return <main className="app complete-screen"><div className="sparkles">✦ ✧ ✦</div><p className="kicker">THE WORLD IS SINGING AGAIN</p><h1>You found the last sound.</h1><p className="complete-copy">Eight forgotten melodies now ripple across the world. Thank you, Listener.</p><button className="primary" type="button" onClick={() => { setLevelNumber(1); setAnswer([]); setFeedback('') }}>Play again <span>↺</span></button></main>
+  if (isComplete) return <><main className="app complete-screen"><div className="sparkles">✦ ✧ ✦</div><p className="kicker">THE WORLD IS SINGING AGAIN</p><h1>You found the last sound.</h1><p className="complete-copy">Eight forgotten melodies now ripple across the world. Thank you, Listener.</p><div className="complete-actions"><button className="primary" type="button" onClick={() => { setLevelNumber(1); setAnswer([]); setFeedback('') }}>Play again <span>↺</span></button>{installButton}</div></main>{installDialog}</>
 
-  return <main className="app">
-    <header><a className="logo" href="#top" onClick={(event) => event.preventDefault()}><span>✦</span> THE LAST SOUND</a><div className="audio-controls"><button type="button" className="mute" onClick={() => setMuted(!muted)} aria-label={muted ? 'Unmute sounds' : 'Mute sounds'}>{muted ? '🔇' : '🔊'} <b>{muted ? 'Muted' : 'Sound on'}</b></button><label>Volume<input aria-label="Volume" type="range" min="0" max="1" step="0.05" value={volume} onChange={(event) => { setVolume(Number(event.target.value)); setMuted(false) }} /></label></div></header>
+  return <><main className="app">
+    <header><a className="logo" href="#top" onClick={(event) => event.preventDefault()}><span>✦</span> THE LAST SOUND</a><div className="header-actions"><div className="audio-controls"><button type="button" className="mute" onClick={() => setMuted(!muted)} aria-label={muted ? 'Unmute sounds' : 'Mute sounds'}>{muted ? '🔇' : '🔊'} <b>{muted ? 'Muted' : 'Sound on'}</b></button><label>Volume<input aria-label="Volume" type="range" min="0" max="1" step="0.05" value={volume} onChange={(event) => { setVolume(Number(event.target.value)); setMuted(false) }} /></label></div>{installButton}</div></header>
     <section className="hero" id="top"><div><p className="kicker">A LISTENING PUZZLE</p><h1>Help the world<br /><em>remember its music.</em></h1><p className="intro">The sounds have vanished. Listen to each lost melody, then restore it one tile at a time.</p></div><div className="hero-orb"><span>☾</span><i>✦</i><b>✧</b></div></section>
     <section className="level-path" aria-label="Level selection">{levels.map((level, index) => { const number = index + 1; return <button type="button" key={level.title} className={`${number === levelNumber ? 'active' : ''} ${number > unlocked ? 'locked' : ''}`} disabled={number > unlocked} onClick={() => selectLevel(number)}><span>{number > unlocked ? '⌁' : number}</span><b>{number === levels.length ? 'Finale' : `Level ${number}`}</b></button> })}</section>
     <section className="game-card"><div className="scene"><div className="scene-stars">✦　·　✧　·　✦</div><div className="scene-title"><span>Level {levelNumber} of {levels.length}</span><h2>{current.title}</h2><p>{current.story}</p></div><div className="mountains"><i /><i /><i /></div></div><div className="puzzle"><div className="puzzle-head"><div><p className="step">STEP 1</p><h2>Listen to the lost melody</h2></div><button type="button" className="listen-button" onClick={playSequence} disabled={playing}>{playing ? 'Playing…' : '▶  Play sequence'}</button></div><p className="hint">Each sound is a short, original tone generated in your browser.</p><div className="divider" /><div className="puzzle-head"><div><p className="step">STEP 2</p><h2>Place the echoes in order</h2></div><span className="count">{answer.length} / {current.sequence.length}</span></div><div className="answer-slots" aria-label="Your answer">{Array.from({ length: current.sequence.length }, (_, index) => <div className={answer[index] ? 'answer-slot filled' : 'answer-slot'} key={index}><small>{index + 1}</small>{answer[index] ? <span>{current.tiles.find((tile) => tile.name === answer[index]).icon} {answer[index]}</span> : <span>?</span>}</div>)}</div><div className="tiles">{current.tiles.map((tile) => <div className={`tile ${tile.color}`} key={tile.name}><span className="tile-icon" aria-hidden="true">{tile.icon}</span><b>{tile.name}</b><div className="tile-actions"><button type="button" className="tile-action tile-listen" onClick={() => playTileSound(tile)} aria-label={`Listen to ${tile.name}`}>🔊 Listen</button><button type="button" className="tile-action tile-select" onClick={() => chooseTile(tile.name)} disabled={answer.length === current.sequence.length}>Select</button></div></div>)}</div><div className="action-row"><button className="clear" type="button" onClick={clearAnswer}>Clear answer</button><button className="primary" type="button" onClick={checkAnswer}>Check answer <span>→</span></button></div>{feedback && <p className={`feedback ${feedback.startsWith('Restored') ? 'success' : ''}`}>{feedback}</p>}</div></section>
     <section className="how-to"><div><span>01</span><h3>Listen</h3><p>Play the sequence as often as you need.</p></div><div><span>02</span><h3>Arrange</h3><p>Tap the sound tiles in the order you heard.</p></div><div><span>03</span><h3>Restore</h3><p>Check your answer to wake the next place.</p></div></section>
     <footer>Made for quiet moments · All sounds are generated with Web Audio</footer>
-  </main>
+  </main>{installDialog}</>
 }
 export default App
